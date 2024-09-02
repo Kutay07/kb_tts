@@ -4,10 +4,13 @@ import time
 import torch
 import torchaudio
 import queue
+import shutil
 from io import BytesIO
 import sounddevice as sd
+from TTS.api import TTS
 from TTS.tts.configs.xtts_config import XttsConfig
 from TTS.tts.models.xtts import Xtts
+
 
 # Global variables
 audio_queue = queue.Queue()
@@ -20,12 +23,32 @@ latent_file = 'speakers.pth'
 
 def initialize_model():
     """Initialize the TTS model and speaker latents."""
+    download_tts_model("tts_models/multilingual/multi-dataset/xtts_v2", "./models/")
     config_path = "./Models/tts_models--multilingual--multi-dataset--xtts_v2/config.json"
     checkpoint_dir = "./Models/tts_models--multilingual--multi-dataset--xtts_v2/"
     global model, gpt_cond_latent, speaker_embedding, speaker_latents
     speaker_latents = load_speaker_latents()
     model = load_model(config_path, checkpoint_dir)
     list_speakers()
+
+def download_tts_model(model_name: str, target_path: str):
+    default_download_dir = os.path.expanduser(os.path.join("~", "AppData", "Local", "tts"))
+
+    TTS(model_name=model_name, progress_bar=True, gpu=False)
+
+    model_folder_name = model_name.replace("/", "--")
+    model_src_path = os.path.join(default_download_dir, model_folder_name)
+    
+    if not os.path.exists(model_src_path):
+        raise FileNotFoundError(f"Model not found in the default download directory: {model_src_path}")
+    
+    if not os.path.exists(target_path):
+        os.makedirs(target_path)
+    
+    target_model_path = os.path.join(target_path, model_folder_name)
+    shutil.copytree(model_src_path, target_model_path)
+    
+    print(f"Model '{model_name}' has been successfully copied to '{target_model_path}'.")
 
 def load_model(config_path: str, model_path: str):
     print("Loading TTS model...")
@@ -36,7 +59,7 @@ def load_model(config_path: str, model_path: str):
     
     if torch.cuda.is_available():
         model.cuda()
-
+    print("TTS model loaded.")
     return model
 
 def load_speaker_latents():
